@@ -1,0 +1,93 @@
+name: Flask CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - staging
+  pull_request:
+    branches:
+      - main
+      - staging
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.9
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Tests
+        run: python -m unittest discover
+
+  deploy-staging:
+    needs: test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Deploy to Staging Server
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
+          STAGING_HOST: ${{ secrets.EC2_HOST }}
+          STAGING_USER: ${{ secrets.STAGING_USER }}
+      
+        run: |
+          echo "$SSH_PRIVATE_KEY" > deploy_key.pem
+          chmod 600 deploy_key.pem
+
+          ssh -o StrictHostKeyChecking=no -i deploy_key.pem $STAGING_USER@$STAGING_HOST << 'EOF'
+            set -e  # Exit on error
+            
+            # Ensure project directory exists
+            mkdir -p /home/ubuntu/FlaskTest
+            cd /home/ubuntu/FlaskTest
+
+            # Clone repo if it doesn't exist
+            if [ ! -d ".git" ]; then
+              git clone git@github.com:your-user/your-repo.git .
+            fi
+
+            # Ensure correct branch
+            git fetch origin
+            if git rev-parse --verify staging; then
+              git checkout staging
+            else
+              git checkout -b staging
+            fi
+            git pull origin staging
+
+            # Ensure virtual environment exists
+            if [ ! -d "venv" ]; then
+              python3 -m venv venv
+            fi
+            source venv/bin/activate
+
+            # Check if requirements.txt exists before installing dependencies
+            if [ -f "requirements.txt" ]; then
+              pip install -r requirements.txt
+            else
+              echo "ERROR: requirements.txt not found!"
+              exit 1
+            fi
+
+            # Restart Flask application
+            if systemctl list-units --full -all | grep -Fq "flaskapp.service"; then
+              sudo systemctl restart flaskapp
+            else
+              echo "Warning: flaskapp.service not found. Ensure it's set up."
+            fi
+          EOF
