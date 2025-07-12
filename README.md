@@ -4,18 +4,6 @@ This guide provides comprehensive instructions to set up a CI/CD pipeline using 
 
 ---
 
-## Table of Contents
-1. [Prerequisites](#prerequisites)
-2. [Setup Jenkins](#setup-jenkins)
-3. [Configure GitHub Actions](#configure-github-actions)
-4. [CI/CD Workflow](#cicd-workflow)
-5. [Deployment to AWS EC2](#deployment-to-aws-ec2)
-6. [Screenshots and Attachments](#screenshots-and-attachments)
-7. [Troubleshooting](#troubleshooting)
-8. [Conclusion](#conclusion)
-
----
-
 ## Prerequisites
 - A GitHub repository containing the Python web application.
 - An AWS EC2 instance with SSH access.
